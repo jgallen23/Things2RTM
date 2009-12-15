@@ -29,21 +29,22 @@ class ThingsHelper(object):
             list = [list for list in self.things.lists() if list.name() == area_name][0]
         else:
             list = self.things
-        for things_task in list.toDos()[:5]:
+        for things_task in list.toDos():
             #canceled = 1952736108
             #completed = 1952736109
             #open = 1952737647
-            task = {
-                'id': things_task.id(),
-                'name': things_task.name(),
-                'tags': [tag.name() for tag in things_task.tags()],
-                'is_complete': (things_task.status() != 1952737647),
-                'due_date': str(things_task.dueDate()).split(' ')[0] if things_task.dueDate() else None,
-                'area': things_task.area().name() if things_task.area() else None,
-                'project': things_task.project().name() if things_task.project() else None,
-                'notes': things_task.notes()
-            }
-            yield task
+            if things_task.status() == 1952737647:
+                task = {
+                    'id': things_task.id(),
+                    'name': things_task.name(),
+                    'tags': [tag.name() for tag in things_task.tags()],
+                    'is_complete': (things_task.status() != 1952737647),
+                    'due_date': str(things_task.dueDate()).split(' ')[0] if things_task.dueDate() else None,
+                    'area': things_task.area().name() if things_task.area() else None,
+                    'project': things_task.project().name() if things_task.project() else None,
+                    'notes': things_task.notes()
+                }
+                yield task
 
 class ImportLog(object):
     def __init__(self):
@@ -137,7 +138,10 @@ def export_from_things():
 
     tasks = things.get_tasks()
     for i, task in enumerate(tasks):
-        print "%d Importing: %s" % (i, task['name'])
+        try:
+            print "%d Importing: %s" % (i, task['name'].encode('ascii', 'ignore'))
+        except:
+            print "%d Imported Task" % (i)
         data['tasks'].append(task)
 
     f = open(EXPORT_PATH, 'wb')
