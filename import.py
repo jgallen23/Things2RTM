@@ -98,24 +98,28 @@ class RTMHelper(object):
         return self._timeline
 
     def add_list(self, list_name):
-        list = self.rtm.lists.add(timeline = self.get_timeline(), name = list_name)
+        list = self.rtm.lists.add(timeline = self.get_timeline(), name = list_name.replace(" ", "_"))
 
     def add_task(self, task):
         new_task = task['name']
         if task['area']:
-            new_task += " #"+task['area']
+            new_task += " #"+task['area'].replace(" ", "_")
         if task['project']:
-            new_task += " #"+task['project']
-        tags = " #".join(task['tags']) if len(task['tags']) != 0 else None
+            new_task += " #"+task['project'].replace(" ", "_")
+
+        tags = " #".join([tag.replace(" ", "_") for tag in task['tags']]) if len(task['tags']) != 0 else None
         if tags:
             new_task += " #"+tags
         if task['due_date']:
             new_task += " ^"+task['due_date']
         
+        #print new_task
+        #return
         rtm_task = self.rtm.tasks.add(timeline = self.get_timeline(), name = new_task, parse = 1)
         if task['is_complete']:
             self.rtm.tasks.complete(timeline = self.get_timeline(), list_id = rtm_task.list.id, taskseries_id = rtm_task.list.taskseries.id, task_id = rtm_task.list.taskseries.task.id)
-
+        if task['notes']:
+            self.rtm.tasksNotes.add(timeline = self.get_timeline(), list_id = rtm_task.list.id, taskseries_id = rtm_task.list.taskseries.id, task_id = rtm_task.list.taskseries.task.id, note_title = "Note", note_text = task["notes"])
         #name
         #due date ^
         #priority !
@@ -132,16 +136,16 @@ def export_from_things():
     }
     areas = things.get_areas()
     for i, area in enumerate(areas):
-        print "%d Importing: %s" % (i, area)
+        print "%d) Exporting: %s" % (i, area)
         data['areas'].append(area)
 
 
     tasks = things.get_tasks()
     for i, task in enumerate(tasks):
         try:
-            print "%d Importing: %s" % (i, task['name'].encode('ascii', 'ignore'))
+            print "%d) Exporting: %s" % (i, task['name'].encode('ascii', 'ignore'))
         except:
-            print "%d Imported Task" % (i)
+            print "%d) Exporting: %s" % (i, task)
         data['tasks'].append(task)
 
     f = open(EXPORT_PATH, 'wb')
@@ -152,37 +156,36 @@ def import_to_rtm():
     f = open(EXPORT_PATH, 'rb')
     data = pickle.load(f)
     f.close()
-    print data
-    #rtm = RTMHelper()
-    #log = ImportLog()
+    rtm = RTMHelper()
+    log = ImportLog()
 
-    #def import_areas():
-        ##areas
-        #things_areas = things.get_areas()
-        #for area in things_areas:
-            #if not log.exists(area):
-                #print "Adding List: %s" % (area)
-                #rtm.add_list(area)
-                #log.write_entry(area)
-            #else:
-                #print "Skipping List: %s" % (area)
+    def import_areas():
+        #areas
+        for area in data['areas']:
+            if not log.exists(area):
+                print "Adding List: %s" % (area)
+                rtm.add_list(area)
+                log.write_entry(area)
+            else:
+                print "Skipping List: %s" % (area)
     
-    #def import_tasks():
-        ##tasks
-        #things_tasks = things.get_tasks()
-        #for i, task in enumerate(things_tasks):
-            #if not log.exists(task['id']) and not task['is_complete']:
-                #try:
-                    #print "%d) Importing: %s" % (i, task['name'])
-                    #rtm.add_task(task)
-                    #log.write_entry(task['id'])
-                #except:
-                    #print "%d) Error Importing: %s" (task['name'])
-            #else:
-                #print "%d) Skipping: %s" % (i, task['name'])
+    def import_tasks():
+        #tasks
+        for i, task in enumerate(data['tasks']):
+            if not log.exists(task['id']) and not task['is_complete']:
+                try:
+                    print "%d) Importing: %s" % (i, task['name'])
+                    rtm.add_task(task)
+                    log.write_entry(task['id'])
+                except KeyboardInterrupt:
+                    break
+                except:
+                    print "%d) Error Importing %s (%s)" % (i, task, sys.exc_info()[0])
+            else:
+                print "%d) Skipping: %s" % (i, task['name'])
 
-    ##import_areas()
-    #import_tasks()
+    import_areas()
+    import_tasks()
 
 def main(args):
     if len(args) == 0 or args[0] == "export":
